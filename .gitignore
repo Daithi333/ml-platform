@@ -14,9 +14,12 @@ wheels/
 
 # Env files
 .env
-STRUCTURE.md
 
 # IDE
 .idea/
 .vscode/
 .kiro/
+
+# Data
+data/*
+!data/.gitkeep

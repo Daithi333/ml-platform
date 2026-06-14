@@ -2,6 +2,46 @@
 
 A production-grade MLOps system demonstrating the full lifecycle of deploying, monitoring, and managing multiple ML models across environments. Built on AWS (Bedrock, SageMaker) with local development alternatives.
 
+## Quick Start
+
+```bash
+# Install dependencies
+uv sync
+
+# Copy environment config
+cp .env.example .env
+
+# Start MLflow stack
+make up-mlflow
+
+# Train the newsgroups classifier
+make train-classifier
+
+# View experiment in MLflow UI
+open http://localhost:5001
+
+# Start the API (in Docker with hot reload)
+make up
+
+# Test prediction
+curl -X POST http://localhost:8000/api/v1/models/newsgroups-classifier/predict \
+  -H "Content-Type: application/json" \
+  -d '{"texts": ["NASA launched a new satellite into orbit today"]}'
+
+# Run tests
+make test-local     # local
+make test           # Docker
+```
+
+## Current Status (Phase 1)
+
+- Config-driven model training (YAML configs, pluggable architectures + datasets)
+- MLflow experiment tracking and model registry (Postgres-backed, local artifacts)
+- FastAPI serving layer with model-agnostic `/predict` endpoint
+- Registry API (list models, inspect versions, reload cache)
+- Docker Compose with profiles (API, MLflow, Airflow)
+- CI pipeline (lint + test via GitHub Actions)
+
 ## Philosophy
 
 This is not a "train a model" project. It's a "run models in production" project. The focus is on the system around the models: deployment strategies, monitoring, retraining, governance, and operational excellence.

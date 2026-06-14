@@ -1,4 +1,6 @@
 import os
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 import structlog
 import uvicorn
@@ -7,22 +9,35 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from src.serving.schemas.errors import ErrorResponse
 from src.exceptions import AppError, ErrorCode
 from src.logs import setup_logging
-from src.serving.routers import health
+from src.registry.factory import make_registry_client
+from src.serving.routers import health, predict, registry
+from src.serving.schemas.errors import ErrorResponse
 
 setup_logging()
 logger = structlog.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    """Application lifespan: initialise shared clients on startup, cleanup on shutdown."""
+    app.state.registry = make_registry_client()
+    logger.info("Application started")
+    yield
+    logger.info("Application shutting down")
 
 
 app = FastAPI(
     title="ML Platform API",
     description="ML platform API",
     version=os.getenv("APP_VERSION", "0.1.0"),
+    lifespan=lifespan,
 )
 
 app.include_router(health.router, prefix="/api/v1")
+app.include_router(predict.router, prefix="/api/v1")
+app.include_router(registry.router, prefix="/api/v1")
 
 
 @app.exception_handler(AppError)

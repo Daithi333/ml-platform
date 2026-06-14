@@ -12,9 +12,33 @@ class BaseConfigSettings(BaseSettings):
         env_file=[".env", str(ENV_FILE_PATH)],
         extra="ignore",
         frozen=True,
-        env_nested_delimiter="__",
         case_sensitive=False,
     )
+
+
+class MLflowSettings(BaseConfigSettings):
+    model_config = SettingsConfigDict(
+        env_file=[".env", str(ENV_FILE_PATH)],
+        env_prefix="MLFLOW__",
+        extra="ignore",
+        frozen=True,
+        case_sensitive=False,
+    )
+
+    tracking_uri: str = "http://localhost:5001"
+    artifact_root: str = "/mlflow/artifacts"
+
+
+class DataSettings(BaseConfigSettings):
+    model_config = SettingsConfigDict(
+        env_file=[".env", str(ENV_FILE_PATH)],
+        env_prefix="DATA__",
+        extra="ignore",
+        frozen=True,
+        case_sensitive=False,
+    )
+
+    root: str = "data"
 
 
 class Settings(BaseConfigSettings):
@@ -22,6 +46,9 @@ class Settings(BaseConfigSettings):
     debug: bool = True
     environment: Literal["development", "staging", "production"] = "development"
     service_name: str = "ml-platform-api"
+
+    mlflow: MLflowSettings = MLflowSettings()
+    data: DataSettings = DataSettings()
 
 
 def get_settings() -> Settings:
