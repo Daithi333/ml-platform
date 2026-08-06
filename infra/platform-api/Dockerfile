@@ -34,7 +34,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 CMD ["uvicorn", "src.serving.app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 
-FROM python:3.12-slim AS final
+FROM python:3.12-slim AS prod
 
 EXPOSE 8000
 

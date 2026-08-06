@@ -1,3 +1,13 @@
+"""Platform API — the management and routing layer.
+
+Responsibilities:
+- Health checks
+- Model registry browsing (list, inspect, versions)
+- Inference routing (proxies to model server containers)
+
+Does NOT load models itself. Models live in dedicated model server containers.
+"""
+
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -21,16 +31,16 @@ logger = structlog.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """Application lifespan: initialise shared clients on startup, cleanup on shutdown."""
+    """Initialise shared clients on startup."""
     app.state.registry = make_registry_client()
-    logger.info("Application started")
+    logger.info("Platform API started")
     yield
-    logger.info("Application shutting down")
+    logger.info("Platform API shutting down")
 
 
 app = FastAPI(
     title="ML Platform API",
-    description="ML platform API",
+    description="MLOps platform management and inference routing API",
     version=os.getenv("APP_VERSION", "0.1.0"),
     lifespan=lifespan,
 )
@@ -42,7 +52,7 @@ app.include_router(registry.router, prefix="/api/v1")
 
 @app.exception_handler(AppError)
 async def app_error_handler(request: Request, exc: AppError):
-    """Map domain errors to structured HTTP responses"""
+    """Map domain errors to structured HTTP responses."""
     app_error_status_map = {
         ErrorCode.NOT_FOUND: 404,
         ErrorCode.CONFLICT: 409,
@@ -56,7 +66,7 @@ async def app_error_handler(request: Request, exc: AppError):
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
-    """Reformat Pydantic / Request Validation Errors"""
+    """Reformat Pydantic / Request Validation Errors."""
     errors = [
         {
             "field": " -> ".join(str(loc) for loc in err.get("loc", [])),
@@ -75,14 +85,15 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    """Reformat Starlette HTTP exceptions (404 for invalid routers, 405 method not allowed, etc.)"""
+    """Reformat Starlette HTTP exceptions."""
     response = ErrorResponse(error=ErrorCode.HTTP_ERROR, message=str(exc.detail), details={})
     return JSONResponse(status_code=exc.status_code, content=response.model_dump())
 
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    """Handle unhandled exceptions and return JSON response. Logging handled in middleware."""
+    """Handle unhandled exceptions."""
+    logger.error("Unhandled exception", error=str(exc), exc_info=True)
     response = ErrorResponse(
         error=ErrorCode.INTERNAL_ERROR,
         message="An unexpected error occurred",

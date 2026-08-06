@@ -1,12 +1,13 @@
 SHELL := /bin/bash
 
-.PHONY: help up up-mlflow up-airflow up-all down down-volumes build ps logs test test-api test-local lint format format-check typecheck pre-commit-install pre-commit-run train-classifier train list-models
+.PHONY: help up up-mlflow up-models up-airflow up-all down down-volumes build ps logs test test-unit test-api test-contract test-integration test-all lint format format-check typecheck pre-commit-install pre-commit-run train-classifier train list-models
 
 help:
 	@echo "Infrastructure:"
-	@echo "  make up               - start core (API only)"
-	@echo "  make up-mlflow        - start core + MLflow stack"
-	@echo "  make up-airflow       - start core + Airflow stack"
+	@echo "  make up               - start platform API"
+	@echo "  make up-mlflow        - start platform API + MLflow"
+	@echo "  make up-models        - start platform API + MLflow + model servers"
+	@echo "  make up-airflow       - start platform API + Airflow"
 	@echo "  make up-all           - start everything"
 	@echo "  make down             - stop stack"
 	@echo "  make down-volumes     - stop stack and remove volumes"
@@ -20,9 +21,12 @@ help:
 	@echo "  make list-models      - list available model configs"
 	@echo ""
 	@echo "Testing:"
-	@echo "  make test             - run all tests (Docker)"
-	@echo "  make test-api         - run api tests (Docker)"
-	@echo "  make test-local       - run all tests (local, no Docker)"
+	@echo "  make test             - run unit + api + contract tests (no Docker needed)"
+	@echo "  make test-unit        - run unit tests only"
+	@echo "  make test-api         - run api tests only"
+	@echo "  make test-contract    - run contract tests only"
+	@echo "  make test-integration - run integration tests (Docker required)"
+	@echo "  make test-all         - run all tests inside Docker"
 	@echo ""
 	@echo "Code Quality:"
 	@echo "  make lint             - run ruff linter"
@@ -39,17 +43,20 @@ up:
 up-mlflow:
 	docker compose --profile mlflow up -d
 
+up-models:
+	docker compose --profile mlflow --profile models up -d
+
 up-airflow:
 	docker compose --profile airflow up -d
 
 up-all:
-	docker compose --profile mlflow --profile airflow up -d
+	docker compose --profile mlflow --profile models --profile airflow up -d
 
 down:
-	docker compose --profile mlflow --profile airflow down
+	docker compose --profile mlflow --profile models --profile airflow down
 
 down-volumes:
-	docker compose --profile mlflow --profile airflow down -v
+	docker compose --profile mlflow --profile models --profile airflow down -v
 
 build:
 	docker compose build --no-cache
@@ -61,13 +68,22 @@ logs:
 	docker compose logs -f --tail=200
 
 test:
-	docker compose exec api pytest tests/ -v
+	uv run pytest tests/unit tests/api tests/contract -v
+
+test-unit:
+	uv run pytest tests/unit -v
 
 test-api:
-	docker compose exec api pytest tests/api -v
+	uv run pytest tests/api -v
 
-test-local:
-	uv run pytest tests/ -v
+test-contract:
+	uv run pytest tests/contract -v
+
+test-integration:
+	docker compose exec platform-api pytest tests/integration -v
+
+test-all:
+	docker compose exec platform-api pytest tests/ -v
 
 lint:
 	uv run ruff check .

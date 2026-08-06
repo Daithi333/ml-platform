@@ -11,8 +11,8 @@ uv sync
 # Copy environment config
 cp .env.example .env
 
-# Start MLflow stack
-make up-mlflow
+# Start MLflow + model server stack
+make up-models
 
 # Train the newsgroups classifier
 make train-classifier
@@ -20,26 +20,28 @@ make train-classifier
 # View experiment in MLflow UI
 open http://localhost:5001
 
-# Start the API (in Docker with hot reload)
-make up
-
-# Test prediction
+# Test prediction (platform API proxies to model server)
 curl -X POST http://localhost:8000/api/v1/models/newsgroups-classifier/predict \
   -H "Content-Type: application/json" \
   -d '{"texts": ["NASA launched a new satellite into orbit today"]}'
 
+# Browse model registry
+curl http://localhost:8000/api/v1/registry/models
+
 # Run tests
-make test-local     # local
-make test           # Docker
+make test-local     # local (no Docker)
+make test           # inside platform-api container
 ```
 
 ## Current Status (Phase 1)
 
+- Two-app architecture: Platform API (management/routing) + Model Server (inference)
 - Config-driven model training (YAML configs, pluggable architectures + datasets)
 - MLflow experiment tracking and model registry (Postgres-backed, local artifacts)
-- FastAPI serving layer with model-agnostic `/predict` endpoint
-- Registry API (list models, inspect versions, reload cache)
-- Docker Compose with profiles (API, MLflow, Airflow)
+- Platform API proxies inference to dedicated model server containers
+- Model server loads model at startup, holds in memory (production pattern)
+- Registry API (list models, inspect versions, trigger reload)
+- Docker Compose with profiles (platform-api, models, mlflow, airflow)
 - CI pipeline (lint + test via GitHub Actions)
 
 ## Philosophy

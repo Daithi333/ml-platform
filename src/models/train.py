@@ -14,6 +14,7 @@ import importlib
 from pathlib import Path
 
 import mlflow
+import mlflow.sklearn
 import structlog
 from sklearn.metrics import accuracy_score, classification_report, f1_score
 
