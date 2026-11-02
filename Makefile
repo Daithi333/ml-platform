@@ -104,11 +104,11 @@ pre-commit-run:
 	uv run pre-commit run --all-files
 
 train-classifier:
-	uv run python -m src.models.train --config newsgroups-classifier
+	docker compose exec platform-api python -m src.models.train --config newsgroups-classifier
 
 train:
 	@if [ -z "$(MODEL)" ]; then echo "Usage: make train MODEL=<config-name>"; exit 1; fi
-	uv run python -m src.models.train --config $(MODEL)
+	docker compose exec platform-api python -m src.models.train --config $(MODEL)
 
 list-models:
-	uv run python -m src.models.train --list
+	docker compose exec platform-api python -m src.models.train --list

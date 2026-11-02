@@ -26,3 +26,9 @@ labels:
   - rec.sport.baseball
   - comp.graphics
   - talk.politics.misc
+
+promotion:
+  min_accuracy: 0.85
+  min_f1_macro: 0.83
+  require_improvement: true
+  primary_metric: f1_macro

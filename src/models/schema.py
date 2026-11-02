@@ -29,6 +29,25 @@ class DatasetConfig(BaseModel):
     random_state: int = 42
 
 
+class PromotionConfig(BaseModel):
+    """Criteria for promoting a trained model to champion status."""
+
+    min_accuracy: float = Field(
+        ge=0.0, le=1.0, description="Absolute minimum accuracy to be eligible for promotion"
+    )
+    min_f1_macro: float = Field(
+        ge=0.0, le=1.0, description="Absolute minimum macro F1 to be eligible for promotion"
+    )
+    require_improvement: bool = Field(
+        default=True,
+        description="If True, new model must outperform the current champion on primary_metric",
+    )
+    primary_metric: str = Field(
+        default="f1_macro",
+        description="Metric used to compare against current champion when require_improvement=True",
+    )
+
+
 class ModelConfig(BaseModel):
     """Full model configuration — one YAML file = one trainable model."""
 
@@ -40,6 +59,9 @@ class ModelConfig(BaseModel):
         default_factory=dict, description="Architecture-specific hyperparameters"
     )
     labels: list[str] = Field(description="Ordered output labels for predictions")
+    promotion: PromotionConfig | None = Field(
+        default=None, description="Promotion criteria. Required for automated promotion DAG."
+    )
 
 
 def load_model_config(config_path: str | Path) -> ModelConfig:

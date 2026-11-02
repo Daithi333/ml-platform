@@ -1,14 +1,6 @@
-import structlog
-
 from src.exceptions import NotFoundError
 from src.registry.client import RegistryClient
-from src.serving.schemas.registry import (
-    ModelReloadResponse,
-    RegisteredModelDetail,
-    RegisteredModelSummary,
-)
-
-logger = structlog.getLogger(__name__)
+from src.serving.schemas.registry import RegisteredModelDetail, RegisteredModelSummary
 
 
 async def get_registered_models(registry: RegistryClient) -> list[RegisteredModelSummary]:
@@ -22,17 +14,3 @@ async def get_model_details(registry: RegistryClient, model_name: str) -> Regist
     if info is None:
         raise NotFoundError(resource="Model", identifier=model_name)
     return info
-
-
-async def reload_model(registry: RegistryClient, model_name: str) -> ModelReloadResponse:
-    """Reload a model from the registry into memory.
-
-    In production, model updates are handled by container rollout (blue-green/canary).
-    This endpoint exists for local dev convenience after retraining.
-    """
-    registry.reload_model(model_name)
-    logger.info("Model reloaded from registry", model_name=model_name)
-    return ModelReloadResponse(
-        status="ok",
-        message=f"Model '{model_name}' reloaded from registry.",
-    )

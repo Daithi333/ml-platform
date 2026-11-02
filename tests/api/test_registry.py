@@ -93,17 +93,3 @@ class TestModelDetails:
         data = response.json()
         assert data["error"] == "NOT_FOUND"
         assert "nonexistent" in data["message"]
-
-
-class TestModelReload:
-    """Tests for POST /api/v1/registry/models/{model_name}/reload."""
-
-    def test_reload_success(self, client, base_url, mock_registry):
-        """Should trigger model reload and return confirmation."""
-        response = client.post(f"{base_url}/registry/models/newsgroups-classifier/reload")
-
-        assert response.status_code == 200
-        data = response.json()
-        assert data["status"] == "ok"
-        assert "newsgroups-classifier" in data["message"]
-        mock_registry.reload_model.assert_called_once_with("newsgroups-classifier")

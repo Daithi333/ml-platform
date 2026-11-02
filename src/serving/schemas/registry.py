@@ -34,10 +34,3 @@ class RegisteredModelDetail(BaseModel):
     description: str
     tags: dict[str, str]
     versions: list[ModelVersionDetail]
-
-
-class ModelReloadResponse(BaseModel):
-    """Response after clearing model cache."""
-
-    status: str
-    message: str

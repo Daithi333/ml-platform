@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -41,14 +42,28 @@ class DataSettings(BaseConfigSettings):
     root: str = "data"
 
 
+class NotificationSettings(BaseConfigSettings):
+    model_config = SettingsConfigDict(
+        env_file=[".env", str(ENV_FILE_PATH)],
+        env_prefix="NOTIFICATIONS__",
+        extra="ignore",
+        frozen=True,
+        case_sensitive=False,
+    )
+
+    slack_webhook_url: str | None = None
+    email_recipients: list[str] = []
+
+
 class Settings(BaseConfigSettings):
     app_version: str = "0.1.0"
     debug: bool = True
     environment: Literal["development", "staging", "production"] = "development"
     service_name: str = "ml-platform-api"
 
-    mlflow: MLflowSettings = MLflowSettings()
-    data: DataSettings = DataSettings()
+    mlflow: MLflowSettings = Field(default_factory=MLflowSettings)
+    data: DataSettings = Field(default_factory=DataSettings)
+    notifications: NotificationSettings = Field(default_factory=NotificationSettings)
 
 
 def get_settings() -> Settings:

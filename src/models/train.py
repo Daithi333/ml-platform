@@ -46,8 +46,8 @@ def get_architecture(architecture_name: str):
     return module
 
 
-def train_model(config: ModelConfig) -> None:
-    """Train a model end-to-end from a validated config."""
+def train_model(config: ModelConfig) -> str:
+    """Train a model end-to-end from a validated config. Returns the MLflow run_id."""
     settings = get_settings()
 
     mlflow.set_tracking_uri(settings.mlflow.tracking_uri)
@@ -107,6 +107,8 @@ def train_model(config: ModelConfig) -> None:
             run_id=run.info.run_id,
             model_name=config.name,
         )
+
+    return run.info.run_id
 
 
 def main():

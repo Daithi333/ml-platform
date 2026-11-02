@@ -29,20 +29,90 @@ curl -X POST http://localhost:8000/api/v1/models/newsgroups-classifier/predict \
 curl http://localhost:8000/api/v1/registry/models
 
 # Run tests
-make test-local     # local (no Docker)
-make test           # inside platform-api container
+make test              # unit + api + contract (no Docker needed)
+make test-integration  # full stack (Docker required)
 ```
 
-## Current Status (Phase 1)
+The model server loads its model at startup and fails fast if none is registered. On a fresh
+stack, train first, then restart it: `docker compose restart model-newsgroups`.
+
+## Train and Promote (Airflow)
+
+The `train_and_promote` DAG trains a model, evaluates it against the `promotion:` criteria in
+its YAML config, and sets the MLflow `@champion` alias if it passes.
+
+```
+run_training -> evaluate_run -> gate -+-> promote -+-> notify
+                                      +-> reject  -+
+```
+
+```bash
+make up-all
+docker compose exec airflow-webserver airflow dags trigger train_and_promote \
+  --conf '{"model_config": "newsgroups-classifier", "triggered_by": "manual"}'
+open http://localhost:8080
+```
+
+A candidate is promoted only if it clears the absolute thresholds (`min_accuracy`,
+`min_f1_macro`) and, when `require_improvement` is set, beats the current champion on
+`primary_metric`. Notifications always go to the logs, and also to Slack when
+`NOTIFICATIONS__SLACK_WEBHOOK_URL` is set.
+
+New DAGs start paused. Unpause them in the UI before triggering.
+
+### Picking up a new champion
+
+The DAG promotes. It does not deploy. Promotion sets the `@champion` alias in MLflow, and the
+model server loads `@champion` once at startup. After a promotion, restart the model server to
+serve the new version:
+
+```bash
+docker compose restart model-newsgroups
+curl http://localhost:8001/health
+```
+
+This separation is deliberate and mirrors production, where promotion (registry state) and
+deployment (what is running) are distinct steps:
+
+| Environment | How a new champion reaches serving |
+|---|---|
+| Local | Manual `docker compose restart` of the model server |
+| EKS + GitOps | Promotion bumps the pinned version in a config repo; ArgoCD/Flux rolls the pods |
+| SageMaker | Registry approval emits an EventBridge event; pipeline calls `UpdateEndpoint` (blue/green with auto-rollback) |
+
+When the AWS phase arrives, deployment becomes a pluggable `Deployer` step after `promote`
+(same pattern as notification clients), so the pipeline itself stays platform-agnostic.
+
+### DAGs in production
+
+Locally, DAGs are bind-mounted from `infra/airflow/dags` and Airflow always runs the latest file
+on disk. Edits apply within ~30s, even to in-flight runs. Production should instead:
+
+- Load DAGs from a versioned bundle (Git or S3), so each run is pinned to the commit it started
+  on and a mid-run deploy cannot change its behaviour
+- Ship DAGs through CI: lint, import-check (`airflow dags list-import-errors`), test, then
+  publish a tagged version
+- Roll back by pointing the bundle at the previous tag, not by editing files in place
+- Version the DAG's code dependencies (`src/`) together with the DAG, since tasks import from it
+
+## Current Status
 
 - Two-app architecture: Platform API (management/routing) + Model Server (inference)
 - Config-driven model training (YAML configs, pluggable architectures + datasets)
 - MLflow experiment tracking and model registry (Postgres-backed, local artifacts)
 - Platform API proxies inference to dedicated model server containers
 - Model server loads model at startup, holds in memory (production pattern)
-- Registry API (list models, inspect versions, trigger reload)
+- Registry API (list models, inspect versions)
+- Automated train/evaluate/promote pipeline in Airflow with pluggable notifications
+  (promotion sets `@champion`; the model server picks it up on restart)
 - Docker Compose with profiles (platform-api, models, mlflow, airflow)
 - CI pipeline (lint + test via GitHub Actions)
+
+### Known gaps
+
+- `make list-models` fails because `--list` conflicts with the required `--config` argument
+  group in `train.py`.
+- Integration tests (`tests/integration/`) are not yet written.
 
 ## Philosophy
 
