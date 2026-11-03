@@ -81,13 +81,57 @@ Key parameters:
 Proportion of correct predictions. Simple but misleading on imbalanced data (predicting
 the majority class always gives high accuracy).
 
-### f1_score
-Harmonic mean of precision and recall. Better than accuracy for imbalanced classes.
+### Precision and recall
+Calculated per class. For one class (say `sci.space`), every prediction falls into:
 
-- `average="macro"`: Compute F1 per class, then take the unweighted mean. Treats all
-  classes equally regardless of size.
-- `average="weighted"`: Compute F1 per class, weighted by number of samples in each
-  class. Accounts for class imbalance.
+- **True positive (TP):** predicted `sci.space`, and it was `sci.space`
+- **False positive (FP):** predicted `sci.space`, but it was another class
+- **False negative (FN):** it was `sci.space`, but predicted as another class
+
+From those:
+
+- **Precision** = TP / (TP + FP). When the model says `sci.space`, how often is it right?
+- **Recall** = TP / (TP + FN). Of all real `sci.space` posts, how many did it find?
+
+They trade off. Predicting a class only when certain gives high precision and low recall.
+Predicting it for everything gives perfect recall and poor precision.
+
+### f1_score
+Combines precision and recall into one per-class score:
+
+```
+F1 = 2 x (precision x recall) / (precision + recall)
+```
+
+This is the harmonic mean, which is pulled towards the weaker of the two. Precision 0.9 with
+recall 0.1 has a plain average of 0.5 but an F1 of only 0.18, so a class scores well only if
+it is good at both.
+
+With several classes there is one F1 per class. The `average` parameter combines them:
+
+- `average="macro"`: unweighted mean. Every class counts equally regardless of size.
+- `average="weighted"`: mean weighted by each class's sample count. Large classes dominate.
+
+Worked example with two classes:
+
+| Class | Examples | F1 |
+|---|---|---|
+| `sci.space` | 900 | 0.95 |
+| `talk.politics.misc` | 100 | 0.40 |
+
+- `f1_macro` = (0.95 + 0.40) / 2 = **0.675**
+- `f1_weighted` = (0.95 x 900 + 0.40 x 100) / 1000 = **0.895**
+
+The weighted score looks healthy; the macro score exposes the weak class.
+
+### Which metric to use
+- **Accuracy** hides weak classes on imbalanced data. A fraud model that never flags fraud
+  (around 0.1% of transactions) still scores about 99.9% accuracy.
+- **`f1_macro`** is this platform's promotion metric (`primary_metric: f1_macro` in the model
+  YAML). A candidate must improve average per-class quality to be promoted, not just get better
+  at the common, easy classes.
+- On balanced data (the 20 Newsgroups subset is roughly balanced) macro and weighted come out
+  close. The gap opens on imbalanced data, which is exactly when it matters.
 
 ### classification_report
 Prints precision, recall, F1, and support (sample count) for each class. The go-to
